@@ -16,6 +16,9 @@ fn not_found() -> Status {
 
 #[get("/v0/cover/<id>")]
 fn cover(id: i64) -> Response<'static> {
+    if id == 0 {
+        return Response::build().header(rocket::http::ContentType::new("image","jpeg")).finalize();
+    }
     let connection = Connection::open("songs.db").unwrap();
     let mut statement = connection
         .prepare(&format!("SELECT filename from songs WHERE id = {}", id))
@@ -25,7 +28,7 @@ fn cover(id: i64) -> Response<'static> {
         filename = statement.read::<String, _>(0).unwrap();
     }
     let tag = Tag::default()
-        .read_from_path("/home/sergiodkpo/Music/".to_owned() + &filename)
+        .read_from_path("D:\\Users\\Sergio\\Music\\Actual Music\\".to_owned() + &filename)
         .unwrap();
     let cover = match tag.album_cover() {
         Some(cover) => cover,
@@ -40,29 +43,48 @@ fn cover(id: i64) -> Response<'static> {
 }
 
 #[get("/v0/all")]
-fn songs() -> String {
+fn songs() -> Response<'static> {
     let connection = Connection::open("songs.db").unwrap();
     let mut statement = connection.prepare("SELECT * FROM songs").unwrap();
-    let mut songs = "{\"songs\": [".to_string();
+    let mut songs = "[".to_string();
     while let Ok(State::Row) = statement.next() {
         let filename = statement.read::<String, _>(1).unwrap();
         let id = statement.read::<i64, _>(0).unwrap();
         let tag =
-            match Tag::default().read_from_path("/home/sergiodkpo/Music/".to_owned() + &filename) {
+            match Tag::default().read_from_path("D:\\Users\\Sergio\\Music\\Actual Music\\".to_owned() + &filename) {
                 Ok(tag) => tag,
                 Err(_) => continue,
             };
         songs += &format!(
             "{{\"title\":\"{}\",\"artist\":\"{}\",\"album\":\"{}\",\"duration\":{},\"id\":{}}},",
-            tag.title().unwrap(),
-            tag.artist().unwrap(),
-            tag.album_title().unwrap(),
-            tag.duration().unwrap(),
+            match tag.title() {
+                Some(title) => title,
+                None => "",
+            },
+            match tag.artist() {
+                Some(artist) => artist,
+                None => "",
+            },
+            match tag.album_title() {
+                Some(album) => album,
+                None => "",
+            },
+            match tag.duration() {
+                Some(duration) => duration as i64,
+                None => 0,
+            },
             id
         );
     }
-    songs += "]}";
-    songs
+    let mut chars = songs.chars();
+    chars.next_back();
+
+    songs = chars.as_str().to_string();
+    songs += "]";
+    Response::build()
+        .header(rocket::http::ContentType::new("application", "json"))
+        .sized_body(Cursor::new(songs))
+        .finalize()
 }
 
 #[get("/tracks/<id>")]
@@ -75,7 +97,7 @@ fn track(id: i64) -> Response<'static> {
     while let Ok(State::Row) = statement.next() {
         filename = statement.read::<String, _>(0).unwrap();
     }
-    let stream = File::open("/home/sergiodkpo/Music/".to_owned() + &filename).unwrap();
+    let stream = File::open("D:\\Users\\Sergio\\Music\\Actual Music\\".to_owned() + &filename).unwrap();
     Response::build()
         .header(rocket::http::ContentType::new("audio", "mpeg"))
         .sized_body(stream)
