@@ -17,7 +17,9 @@ fn not_found() -> Status {
 #[get("/v0/cover/<id>")]
 fn cover(id: i64) -> Response<'static> {
     if id == 0 {
-        return Response::build().header(rocket::http::ContentType::new("image","jpeg")).finalize();
+        return Response::build()
+            .header(rocket::http::ContentType::new("image", "jpeg"))
+            .finalize();
     }
     let connection = Connection::open("songs.db").unwrap();
     let mut statement = connection
@@ -50,11 +52,12 @@ fn songs() -> Response<'static> {
     while let Ok(State::Row) = statement.next() {
         let filename = statement.read::<String, _>(1).unwrap();
         let id = statement.read::<i64, _>(0).unwrap();
-        let tag =
-            match Tag::default().read_from_path("D:\\Users\\Sergio\\Music\\Actual Music\\".to_owned() + &filename) {
-                Ok(tag) => tag,
-                Err(_) => continue,
-            };
+        let tag = match Tag::default()
+            .read_from_path("D:\\Users\\Sergio\\Music\\Actual Music\\".to_owned() + &filename)
+        {
+            Ok(tag) => tag,
+            Err(_) => continue,
+        };
         songs += &format!(
             "{{\"title\":\"{}\",\"artist\":\"{}\",\"album\":\"{}\",\"duration\":{},\"id\":{}}},",
             match tag.title() {
@@ -76,13 +79,14 @@ fn songs() -> Response<'static> {
             id
         );
     }
-    let mut chars = songs.chars();
-    chars.next_back();
-
-    songs = chars.as_str().to_string();
+    // let mut chars = songs.chars();
+    // chars.next_back();
+    //
+    // songs = chars.as_str().to_string();
     songs += "]";
+    println!("{}", songs);
     Response::build()
-        .header(rocket::http::ContentType::new("application", "json"))
+        .header(rocket::http::ContentType::new("text", "html"))
         .sized_body(Cursor::new(songs))
         .finalize()
 }
@@ -97,7 +101,8 @@ fn track(id: i64) -> Response<'static> {
     while let Ok(State::Row) = statement.next() {
         filename = statement.read::<String, _>(0).unwrap();
     }
-    let stream = File::open("D:\\Users\\Sergio\\Music\\Actual Music\\".to_owned() + &filename).unwrap();
+    let stream =
+        File::open("D:\\Users\\Sergio\\Music\\Actual Music\\".to_owned() + &filename).unwrap();
     Response::build()
         .header(rocket::http::ContentType::new("audio", "mpeg"))
         .sized_body(stream)
